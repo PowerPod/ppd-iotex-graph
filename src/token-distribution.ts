@@ -1,61 +1,15 @@
 import {
-  AdminChanged as AdminChangedEvent,
-  BeaconUpgraded as BeaconUpgradedEvent,
-  Initialized as InitializedEvent,
   Invested as InvestedEvent,
-  OwnershipTransferred as OwnershipTransferredEvent,
   TokensClaimed as TokensClaimedEvent,
-  Upgraded as UpgradedEvent
-} from "../generated/TokenDistribution/TokenDistribution"
+} from '../generated/TokenDistribution/TokenDistribution'
 import {
-  AdminChanged,
-  BeaconUpgraded,
-  Initialized,
   Invested,
-  OwnershipTransferred,
   TokensClaimed,
-  Upgraded
-} from "../generated/schema"
-
-export function handleAdminChanged(event: AdminChangedEvent): void {
-  let entity = new AdminChanged(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  )
-  entity.previousAdmin = event.params.previousAdmin
-  entity.newAdmin = event.params.newAdmin
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleBeaconUpgraded(event: BeaconUpgradedEvent): void {
-  let entity = new BeaconUpgraded(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  )
-  entity.beacon = event.params.beacon
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleInitialized(event: InitializedEvent): void {
-  let entity = new Initialized(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  )
-  entity.version = event.params.version
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
+  PeriodSummary,
+  UniqueInvestor,
+  GlobalSummary,
+} from '../generated/schema'
+import { Bytes, BigInt } from '@graphprotocol/graph-ts'
 
 export function handleInvested(event: InvestedEvent): void {
   let entity = new Invested(
@@ -70,22 +24,67 @@ export function handleInvested(event: InvestedEvent): void {
   entity.transactionHash = event.transaction.hash
 
   entity.save()
-}
 
-export function handleOwnershipTransferred(
-  event: OwnershipTransferredEvent
-): void {
-  let entity = new OwnershipTransferred(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
+  let periodSummary = PeriodSummary.load(
+    Bytes.fromI32(event.params.period.toI32())
   )
-  entity.previousOwner = event.params.previousOwner
-  entity.newOwner = event.params.newOwner
+  if (periodSummary == null) {
+    periodSummary = new PeriodSummary(
+      Bytes.fromI32(event.params.period.toI32())
+    )
+    periodSummary.period = event.params.period
+    periodSummary.totalInvested = BigInt.fromI32(0)
+    periodSummary.totalClaimed = BigInt.fromI32(0)
+    periodSummary.totalUniqueInvestors = BigInt.fromI32(0)
+  }
 
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
+  periodSummary.totalInvested = periodSummary.totalInvested.plus(
+    event.params.amount
+  )
 
-  entity.save()
+  let investorId =
+    event.params.investor.toHexString() + '-' + event.params.period.toString()
+  let uniqueInvestor = UniqueInvestor.load(investorId)
+  if (uniqueInvestor == null) {
+    uniqueInvestor = new UniqueInvestor(investorId)
+    uniqueInvestor.investor = event.params.investor
+    uniqueInvestor.period = event.params.period
+
+    uniqueInvestor.save()
+
+    periodSummary.totalUniqueInvestors =
+      periodSummary.totalUniqueInvestors.plus(BigInt.fromI32(1))
+  }
+
+  periodSummary.save()
+
+  let globalSummary = GlobalSummary.load('1')
+  if (globalSummary == null) {
+    globalSummary = new GlobalSummary('1')
+    globalSummary.totalInvested = BigInt.fromI32(0)
+    globalSummary.totalClaimed = BigInt.fromI32(0)
+    globalSummary.totalUniqueInvestors = BigInt.fromI32(0)
+  }
+
+  globalSummary.totalInvested = globalSummary.totalInvested.plus(
+    event.params.amount
+  )
+
+  let globalInvestorId = event.params.investor.toHexString() + '-global'
+
+  let globalUniqueInvestor = UniqueInvestor.load(globalInvestorId)
+  if (globalUniqueInvestor == null) {
+    globalUniqueInvestor = new UniqueInvestor(globalInvestorId)
+    globalUniqueInvestor.investor = event.params.investor
+    globalUniqueInvestor.period = BigInt.fromI32(-1)
+
+    globalUniqueInvestor.save()
+
+    globalSummary.totalUniqueInvestors =
+      globalSummary.totalUniqueInvestors.plus(BigInt.fromI32(1))
+  }
+
+  globalSummary.save()
 }
 
 export function handleTokensClaimed(event: TokensClaimedEvent): void {
@@ -101,17 +100,34 @@ export function handleTokensClaimed(event: TokensClaimedEvent): void {
   entity.transactionHash = event.transaction.hash
 
   entity.save()
-}
 
-export function handleUpgraded(event: UpgradedEvent): void {
-  let entity = new Upgraded(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
+  let periodSummary = PeriodSummary.load(
+    Bytes.fromI32(event.params.period.toI32())
   )
-  entity.implementation = event.params.implementation
+  if (periodSummary == null) {
+    periodSummary = new PeriodSummary(
+      Bytes.fromI32(event.params.period.toI32())
+    )
+    periodSummary.period = event.params.period
+    periodSummary.totalInvested = BigInt.fromI32(0)
+    periodSummary.totalClaimed = BigInt.fromI32(0)
+  }
 
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
+  periodSummary.totalClaimed = periodSummary.totalClaimed.plus(
+    event.params.amount
+  )
+  periodSummary.save()
 
-  entity.save()
+  let globalSummary = GlobalSummary.load('1')
+  if (globalSummary == null) {
+    globalSummary = new GlobalSummary('1')
+    globalSummary.totalInvested = BigInt.fromI32(0)
+    globalSummary.totalClaimed = BigInt.fromI32(0)
+    globalSummary.totalUniqueInvestors = BigInt.fromI32(0)
+  }
+
+  globalSummary.totalClaimed = globalSummary.totalClaimed.plus(
+    event.params.amount
+  )
+  globalSummary.save()
 }

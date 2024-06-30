@@ -8,7 +8,7 @@ dataSources:
     name: TokenDistribution
     network: iotex
     source:
-      address: "0x56bb83AE32057F8423eA4D76d8f40F4dfB31d4ec"
+      address: '0x56bb83AE32057F8423eA4D76d8f40F4dfB31d4ec'
       abi: TokenDistribution
       startBlock: 30797057
     mapping:
@@ -27,18 +27,8 @@ dataSources:
         - name: TokenDistribution
           file: ./abis/TokenDistribution.json
       eventHandlers:
-        - event: AdminChanged(address,address)
-          handler: handleAdminChanged
-        - event: BeaconUpgraded(indexed address)
-          handler: handleBeaconUpgraded
-        - event: Initialized(uint8)
-          handler: handleInitialized
         - event: Invested(address,uint32,uint256)
           handler: handleInvested
-        - event: OwnershipTransferred(indexed address,indexed address)
-          handler: handleOwnershipTransferred
         - event: TokensClaimed(address,uint32,uint256)
           handler: handleTokensClaimed
-        - event: Upgraded(indexed address)
-          handler: handleUpgraded
       file: ./src/token-distribution.ts
