@@ -38,3 +38,13 @@ type GlobalSummary @entity {
   totalClaimed: BigInt! # uint256
   totalUniqueInvestors: BigInt! # uint256
 }
+
+type PTTokensClaimed @entity(immutable: true) {
+  id: Bytes!
+  tokenId: BigInt! # uint256
+  claimant: Bytes! # address
+  amount: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
